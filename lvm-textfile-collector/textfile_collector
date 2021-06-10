@@ -1,0 +1,94 @@
+#!/bin/bash
+
+FILEPATH=${TEXTFILE_PATH:=/shared_vol}
+INTERVAL=${COLLECT_INTERVAL:=10}
+
+set -eu
+
+display_usage() {
+  echo "This script must be run with super-user privileges."
+  echo "Usage: lvm-metricsr options"
+  echo "Options:"
+  echo "Expose various types of information about lvm2"
+  echo "Use -l for used and free space of logical volume"
+}
+
+if [ "$(id -u)" != "0" ]; then
+  1>&2 echo "This script must be run with super-user privileges."
+  exit 1
+fi
+
+if [ $# -eq 0 ]
+then
+  display_usage
+  exit 1
+fi
+
+lvs=false
+
+while getopts "hl" opt; do
+  case $opt in
+    l)
+      lvs=true
+      ;;
+    h)
+      display_usage
+      exit 0
+      ;;
+    \?)
+      display_usage
+      exit 1
+      ;;
+  esac
+done
+
+function collectLvmMetrics(){
+
+	 > ${FILEPATH}/lvm_metrics.prom
+	echo "# HELP node_lv_size Logical volume side in bytes"
+
+	vgs_output=($(/sbin/vgs --noheadings --units b --nosuffix --unquoted --nameprefixes -o vg_name,lv_count 2>/dev/null))
+
+	declare -A vgMap
+	
+	i=0
+	while [ $i -lt ${#vgs_output[@]} ];
+	do
+		ind=`expr $i + 1`
+		[ $ind -gt ${#vgs_output[@]} ] && continue
+		splitPath=(${vgs_output[$i]//=/ })
+		splitPathw=(${vgs_output[$ind]//=/ })
+		vgMap[${splitPath[1]}]=${splitPathw[1]}
+		i=`expr $i + 2`
+	done
+
+	declare -A deviceMap
+	for i in "${!vgMap[@]}"
+	do
+		[ ${vgMap[$i]} -eq 0 ] && continue 
+		for x in /dev/"$i"/* ; do
+		realPath=$(realpath $x);
+		splitPath=(${realPath//// });
+		deviceMap[\"$x\"]=${splitPath[1]};
+		done
+	done
+	
+	lvs_output=$(/sbin/lvs --noheadings --units b --nosuffix --unquoted --nameprefixes -o lv_full_name,lv_size,lv_active,lv_uuid,lv_name,lv_path,vg_name,lv_dm_path 2>/dev/null)
+	echo "$lvs_output" | while IFS= read -r line ; do
+		# Skip if the line is empty
+		[ -z "$line" ] && continue
+		declare $line
+		echo "lvm_lv_total_size{name=\"$LVM2_LV_NAME\",vg=\"$LVM2_VG_NAME\",uuid=\"$LVM2_LV_UUID\",full_name=\"$LVM2_LV_FULL_NAME\",path=\"$LVM2_LV_PATH\",dm_path=\"$LVM2_LV_DM_PATH\",device=\"${deviceMap[\"$LVM2_LV_PATH\"]}\"} $LVM2_LV_SIZE" >> ${FILEPATH}/lvm_metrics.prom
+	done
+}
+
+while true
+do
+    if [ "$lvs" = true ] ; then
+
+		collectLvmMetrics;
+	
+	fi
+
+	sleep ${INTERVAL}
+done

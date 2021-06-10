@@ -1,0 +1,6 @@
+examples/
+lvm-textfile-collector/
+gitignore
+LICENSE
+README.md
+Dockerfile

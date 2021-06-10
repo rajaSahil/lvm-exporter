@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: node-exporter
+    jobLabel: node-exporter
+  name: node-exporter
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+        jobLabel: node-exporter
+    spec:
+      containers:
+        - args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/host/root
+            - --web.listen-address=$(HOST_IP):9100
+            - --collector.textfile.directory=/shared_vol
+            - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+            - --collector.filesystem.ignored-fs-types=^(tmpfs|autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+          env:
+            - name: HOST_IP
+              value: 0.0.0.0
+          image: quay.io/prometheus/node-exporter:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+          name: node-exporter
+          ports:
+            - containerPort: 9100
+              hostPort: 9100
+              name: metrics
+              protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /host/proc
+              name: proc
+              readOnly: true
+            - mountPath: /host/sys
+              name: sys
+              readOnly: true
+            - mountPath: /host/root
+              mountPropagation: HostToContainer
+              name: root
+              readOnly: true
+            - mountPath: /shared_vol
+              mountPropagation: HostToContainer
+              name: textfile-collector
+              readOnly: true
+        - name: monitor-lvm
+          image: sahil0071/lvm-textfile-collector
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+          env:
+            - name: TEXTFILE_PATH
+              value: /shared_vol
+            - name: COLLECT_INTERVAL
+              value: "10"
+          command:
+            - /bin/bash
+          args:
+            - -c
+            - ./textfile_collector -l
+          volumeMounts:
+            - mountPath: /shared_vol
+              name: textfile-collector
+            - mountPath: /dev
+              name: dev-dir
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      hostPID: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /proc
+            type: ""
+          name: proc
+        - hostPath:
+            path: /sys
+            type: ""
+          name: sys
+        - hostPath:
+            path: /
+            type: ""
+          name: root
+        - emptyDir: {}
+          name: textfile-collector
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: dev-dir
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
