@@ -1,4 +1,4 @@
-### To run lvm-exporter as a daemonset on kubernetes:
+### To run lvm-exporter as a sidecar container with node-exporter:
 ```
 Apply lvm-textfile-collector.yaml
 kubectl apply -f lvm-textfile-collector.yaml
