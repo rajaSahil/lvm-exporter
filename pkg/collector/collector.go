@@ -19,15 +19,15 @@ type lvmCollector struct {
 // LVM Collector contains VG size and VG free in MB
 func NewLvmCollector() *lvmCollector {
 	return &lvmCollector{
-		vgFreeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm","vg","free_size"),
+		vgFreeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm", "vg", "free_size"),
 			"Shows LVM VG free size",
 			[]string{"vg_name"}, nil,
 		),
-		vgSizeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm","vg","total_size"),
+		vgSizeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm", "vg", "total_size"),
 			"Shows LVM VG total size",
 			[]string{"vg_name"}, nil,
 		),
-		lvSizeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm","lv","total_size"),
+		lvSizeMetric: prometheus.NewDesc(prometheus.BuildFQName("lvm", "lv", "total_size"),
 			"Shows LVM LV total size",
 			[]string{"lv_name", "lv_full_name", "lv_uuid", "lv_path", "lv_dm_path", "lv_active", "vg_name", "device"}, nil,
 		),
@@ -117,7 +117,7 @@ func getDeviceMap(vgMap *map[string]int64) map[string]string {
 			space := regexp.MustCompile(`\s+`)
 			s := space.ReplaceAllString(line, " ")
 			values := strings.Split(s, " ")
-			if len(values) ==11 {
+			if len(values) == 11 {
 				device := strings.Split(values[10], "/")
 				deviceMap[values[8]] = device[1]
 			}

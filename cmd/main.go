@@ -14,14 +14,14 @@ import (
 	"os"
 )
 
-var(
-	enableLvmExporter= kingpin.Flag("web.enable-lvm-exporter","Enable lvm exporter").Default("true").Bool()
-	listenAddress= kingpin.Flag("web.listen-address","Address on which to expose metrics and web interface.").Default(":9880").String()
-	metricsPath= kingpin.Flag("web.metrics-path",  "Path under which to expose metrics.").Default("/metrics").String()
-	disableExporterMetrics = kingpin.Flag("web.disable-exporter-metrics","Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).").Default("false").Bool()
+var (
+	enableLvmExporter      = kingpin.Flag("web.enable-lvm-exporter", "Enable lvm exporter").Default("true").Bool()
+	listenAddress          = kingpin.Flag("web.listen-address", "Address on which to expose metrics and web interface.").Default(":9880").String()
+	metricsPath            = kingpin.Flag("web.metrics-path", "Path under which to expose metrics.").Default("/metrics").String()
+	disableExporterMetrics = kingpin.Flag("web.disable-exporter-metrics", "Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).").Default("false").Bool()
 )
 
-func main(){
+func main() {
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.Version(version.Print("node_exporter"))
@@ -43,7 +43,7 @@ func main(){
 	}
 	registry.MustRegister(version.NewCollector("lvm_exporter"))
 
-	lvmExporter:= collector.NewLvmCollector()
+	lvmExporter := collector.NewLvmCollector()
 
 	registry.MustRegister(lvmExporter)
 
