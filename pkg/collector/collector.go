@@ -1,11 +1,11 @@
 package collector
 
 import (
+	"github.com/google/martian/log"
 	"github.com/prometheus/client_golang/prometheus"
-	"log"
+	"github.com/rajaSahil/lvm-exporter/pkg/lvm"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -43,63 +43,25 @@ func (collector *lvmCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // LVM Collect, call OS command and set values
 func (collector *lvmCollector) Collect(ch chan<- prometheus.Metric) {
-	out, err := exec.Command("/sbin/vgs", "--units", "M", "--separator", ",", "-o", "vg_name,vg_free,vg_size,lv_count", "--noheadings").Output()
-	vgMap := make(map[string]int64)
-
+	vgList, err := lvm.LVMClient.ListLVMVolumeGroup()
 	if err != nil {
-		log.Print(err)
+		log.Errorf("Error in getting the list of LVM volume groups:%v", err)
 	}
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		values := strings.Split(line, ",")
-		if len(values) == 4 {
-			free_size, err := strconv.ParseFloat(strings.Trim(values[1], "M"), 64)
-			if err != nil {
-				log.Print(err)
-			} else {
-				total_size, err := strconv.ParseFloat(strings.Trim(values[2], "M"), 64)
-				if err != nil {
-					log.Print(err)
-				} else {
-					vg_name := strings.Trim(values[0], " ")
-					lv_count := strings.Trim(values[3], " ")
-					vgMap[vg_name], _ = strconv.ParseInt(lv_count, 0, 64)
-					ch <- prometheus.MustNewConstMetric(collector.vgFreeMetric, prometheus.GaugeValue, free_size, vg_name)
-					ch <- prometheus.MustNewConstMetric(collector.vgSizeMetric, prometheus.GaugeValue, total_size, vg_name)
-				}
-			}
-		}
+
+	for _, vg := range vgList {
+		ch <- prometheus.MustNewConstMetric(collector.vgFreeMetric, prometheus.GaugeValue, float64(vg.FreeSize), vg.Name)
+		ch <- prometheus.MustNewConstMetric(collector.vgSizeMetric, prometheus.GaugeValue, float64(vg.TotalSize), vg.Name)
 	}
-	deviceMap := getDeviceMap(&vgMap)
 
-	out, err = exec.Command("/sbin/lvs", "--units", "M", "--separator", ",", "-o", "lv_name,lv_full_name,lv_uuid,lv_path,lv_dm_path,lv_size,lv_active,vg_name", "--noheadings").Output()
-
+	lvList, err := lvm.LVMClient.ListLVMLogicalVolume()
 	if err != nil {
-		log.Println(err)
+		log.Errorf("Error in getting the list of LVM logical volume:%v", err)
 	}
 
-	lines = strings.Split(string(out), "\n")
+	for _, lv := range lvList {
+		ch <- prometheus.MustNewConstMetric(collector.lvSizeMetric, prometheus.GaugeValue, float64(lv.Size), lv.Name, lv.FullName, lv.UUID, lv.Path, lv.DMPath, lv.Active, lv.VGName, lv.Device)
 
-	for _, line := range lines {
-		values := strings.Split(line, ",")
-		if len(values) == 8 {
-			total_size, err := strconv.ParseFloat(strings.Trim(values[5], "M"), 64)
-			if err != nil {
-				log.Print(err)
-			} else {
-				lv_name := strings.Trim(values[0], " ")
-				lv_full_name := strings.Trim(values[1], " ")
-				lv_uuid := strings.Trim(values[2], " ")
-				lv_path := strings.Trim(values[3], " ")
-				lv_dm_path := strings.Trim(values[4], " ")
-				lv_active := strings.Trim(values[6], " ")
-				vg_name := strings.Trim(values[7], " ")
-				ch <- prometheus.MustNewConstMetric(collector.lvSizeMetric, prometheus.GaugeValue, total_size, lv_name, lv_full_name, lv_uuid, lv_path, lv_dm_path, lv_active, vg_name, deviceMap[lv_name])
-			}
-
-		}
 	}
-
 }
 
 func getDeviceMap(vgMap *map[string]int64) map[string]string {
@@ -110,7 +72,7 @@ func getDeviceMap(vgMap *map[string]int64) map[string]string {
 		}
 		out, err := exec.Command("/bin/ls", "-l", "/dev/"+k).Output()
 		if err != nil {
-			log.Println(err)
+			log.Errorf("Error: %v", err)
 		}
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines {

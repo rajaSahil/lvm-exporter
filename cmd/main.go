@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
@@ -18,7 +19,7 @@ var (
 	enableLvmExporter      = kingpin.Flag("web.enable-lvm-exporter", "Enable lvm exporter").Default("true").Bool()
 	listenAddress          = kingpin.Flag("web.listen-address", "Address on which to expose metrics and web interface.").Default(":9880").String()
 	metricsPath            = kingpin.Flag("web.metrics-path", "Path under which to expose metrics.").Default("/metrics").String()
-	disableExporterMetrics = kingpin.Flag("web.disable-exporter-metrics", "Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).").Default("false").Bool()
+	disableExporterMetrics = kingpin.Flag("web.disable-exporter-metrics", "Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).").Default("true").Bool()
 )
 
 func main() {
@@ -35,10 +36,10 @@ func main() {
 
 	registry := prometheus.NewRegistry()
 
-	if *disableExporterMetrics {
+	if !*disableExporterMetrics {
 		registry.MustRegister(
-			prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-			prometheus.NewGoCollector(),
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+			collectors.NewGoCollector(),
 		)
 	}
 	registry.MustRegister(version.NewCollector("lvm_exporter"))
@@ -49,7 +50,7 @@ func main() {
 
 	http.Handle(*metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		_, _ = w.Write([]byte(`<html>
 			<head><title>LVM Exporter</title></head>
 			<body>
 			<h1>LVM Exporter</h1>
@@ -58,9 +59,9 @@ func main() {
 			</html>`))
 	})
 
-	level.Info(logger).Log("msg", "Listening on", "address", *listenAddress)
+	_ = level.Info(logger).Log("msg", "Listening on", "address", *listenAddress)
 	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-		level.Error(logger).Log("err", err)
+		_ = level.Error(logger).Log("err", err)
 		os.Exit(1)
 	}
 }

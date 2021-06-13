@@ -63,13 +63,13 @@ push: publish-latest publish-version ## Push the `{version}` ans `latest` tagged
 
 publish-latest: tag-latest ## Publish the `latest` taged container to docker
 	@echo "--------------------------"
-	@echo "Publishing the `latest` taged container to docker"
+	@echo "--> Publishing the `latest` taged container to docker"
 	@echo 'publish latest to $(DOCKER_REPO)'
 	docker push $(DOCKER_REPO)/$(EXPORTER_NAME):latest
 
 publish-version: tag-version ## Publish the `{version}` taged container to docker
 	@echo "--------------------------"
-	@echo "Publishing the `$(version)` taged container to docker"
+	@echo "--> Publishing the `$(version)` taged container to docker"
 	@echo 'publish $(VERSION) to $(DOCKER_REPO)'
 	docker push $(DOCKER_REPO)/$(EXPORTER_NAME):$(VERSION)
 
