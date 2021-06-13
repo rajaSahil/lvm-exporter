@@ -15,7 +15,7 @@ help:
 
 
 .PHONY: all
-all: format deps release
+all: format test deps release
 
 .PHONY: format
 format: ## Running go fmt
@@ -41,6 +41,12 @@ verify-deps: ## Running dependency check for docker
 		&& exit 1; \
 	fi;
 	@echo "Docker dependency verified"
+
+test: ## Run unit tests
+	@echo "--------------------------"
+	@echo "--> Verifying docker dependency"
+	@go test -v -cover ./...
+
 
 # DOCKER TASKS
 # Build the container

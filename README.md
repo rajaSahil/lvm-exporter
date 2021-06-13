@@ -18,6 +18,7 @@ lvm_vg_total_size{vg_name=""} TOTAL_SIZE
 ```
 
 #### To publish container to Docker
+* Update `DOCKER_REPO` in deploy.env with you own dockerhub repo name.
 * Run `make all` in the top directory. It will:
   * Build the docker image with the binary and will publish it in your docker repo.
 
